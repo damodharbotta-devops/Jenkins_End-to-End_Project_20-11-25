@@ -1,0 +1,40 @@
+pipeline {
+    agent any
+    tools {
+        maven "mymaven"
+    }
+    stages {
+        stage ("code") {
+            steps {
+                git 'https://github.com/damodharbotta-devops/one.git'
+            }
+        }
+        stage ("CQA") {
+            steps {
+                withSonarQubeEnv("mysonar") {
+                    sh '''
+                       mvn sonar:sonar\
+                       -Dsonar.projectKey=myproject\
+                       -Dsonar.host.url=http://52.90.156.132:9000/\
+                       -Dsonar.login=sqa_23e2d0fcf422527438d4c589ebd70bc5a4426fa6
+                       '''
+                }
+            }
+        }
+        stage ("Build & Test") {
+            steps {
+                sh 'mvn clean package' 
+            }
+        }
+        stage ("Artifacts") {
+            steps {
+                nexusArtifactUploader artifacts: [[artifactId: 'myweb', classifier: '', file: 'target/myweb-8.7.3.war', type: 'war']], credentialsId: 'nexus-id', groupId: 'in.javahome', nexusUrl: '98.94.89.211:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'myrepo', version: '8.7.3'
+            }
+        }
+        stage ("Deploy") {
+            steps {
+                deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'appserver', path: '', url: 'http://54.221.17.215:8080/')], contextPath: 'myapp', war: 'target/*.war'
+            }
+        }
+    }
+}
